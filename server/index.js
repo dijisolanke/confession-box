@@ -1,20 +1,34 @@
+const express = require("express");
+const http = require("http");
+const socketIo = require("socket.io");
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
+
+const availableUsers = new Set();
+
 io.on("connection", (socket) => {
-  console.log("New user connected:", socket.id);
-
-  socket.on("join", (roomId) => {
-    socket.join(roomId);
-    console.log(`User ${socket.id} joined room ${roomId}`);
-  });
-
-  socket.on("callUser", ({ userToCall, signalData, from }) => {
-    io.to(userToCall).emit("callUser", { signal: signalData, from: from });
-  });
-
-  socket.on("answerCall", ({ signal, to }) => {
-    io.to(to).emit("callAccepted", signal);
-  });
+  availableUsers.add(socket.id);
+  tryMatch();
 
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    availableUsers.delete(socket.id);
+  });
+
+  socket.on("next", () => {
+    // End current chat and try to match again
+    endCurrentChat(socket.id);
+    availableUsers.add(socket.id);
+    tryMatch();
   });
 });
+
+function tryMatch() {
+  if (availableUsers.size >= 2) {
+    const [user1, user2] = [...availableUsers].slice(0, 2);
+    availableUsers.delete(user1);
+    availableUsers.delete(user2);
+    io.to(user1).to(user2).emit("matched", { partnerId: user2 });
+  }
+}
