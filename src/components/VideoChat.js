@@ -21,7 +21,7 @@ const VideoChat = () => {
   const socketRef = useRef();
 
   useEffect(() => {
-    socketRef.current = io.connect("http://localhost:5000");
+    socketRef.current = io.connect("https://confession-box.vercel.app/");
 
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
