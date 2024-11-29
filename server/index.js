@@ -10,12 +10,12 @@ const io = socketIo(server);
 // Replace with your Vercel app URL
 const allowedOrigins = ["https://confession-box.vercel.app/"];
 
-// Use CORS middleware
+// Use CORS middleware.
 app.use(
   cors({
     origin: allowedOrigins,
     methods: ["GET", "POST"],
-    credentials: true, // Allow credentials if needed
+    credentials: true, // Allow credentials if needed.
   })
 );
 
