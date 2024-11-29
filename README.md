@@ -1,12 +1,16 @@
 # This react app is a two way video chat similar to chat roulettte.
-It's meant to allow two complete stangers to confess / get things off their chest
-It's inspired by Dostoevsky's novel crime and punnishment.
-One if the main theme's in the novel is that humans have a deep need for confession.
+It's meant to allow two complete stangers to confess / get things off their chest.
+
+It's inspired by Fyodor Dostoevsky's novel Crime and Punnishment.
+One of the main theme's of the novel is that
+humans have a deep need for confession.
+This is one such space... i hope
 
 ## The app uses 
 - React for the front-end
 - Node for Backend
 - Firebase for Security and performance optimization
+- Deployed using Vercel
 
 
 
