@@ -1,4 +1,4 @@
-# This react app is a two way video chat similar to chat roulettte.]
+# This react app is a two way video chat similar to chat roulettte.
 It's meant to allow two complete stangers to confess / get things off their chest
 It's inspired by Dostoevsky's novel crime and punnishment.
 One if the main theme's in the novel is that humans have a deep need for confession.
@@ -28,7 +28,7 @@ you will need to change the a few things in order to run the app locally
 - [Link Text](server/index.js)
 `const allowedOrigins = ["https://confession-box.vercel.app/"];` change to http://localhost:5000/
 - [Link Text](src/components/VideoChat.js)
-`socketRef.current = io.connect("https://confession-box.vercel.app/");` hange to http://localhost:5000/
+`socketRef.current = io.connect("https://confession-box.vercel.app/");` change to http://localhost:5000/
   
 
 
