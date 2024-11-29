@@ -1,23 +1,39 @@
+# This react app is a two way video chat similar to chat roulettte.]
+It's meant to allow two complete stangers to confess / get things off their chest
+It's inspired by Dostoevsky's novel crime and punnishment.
+One if the main theme's in the novel is that humans have a deep need for confession.
+
+## The app uses 
+- React for the front-end
+- Node for Backend
+- Firebase for Security and performance optimization
+
+
+
+
+
+
 # Getting Started with Create React App
-
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
-
-## Available Scripts
 
 In the project directory, you can run:
 
+### `npm i`
+
 ### `npm start`
 
-Runs the app in the development mode.\
+Runs the app in the development mode.
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+you will need to change the a few things in order to run the app locally
+- [Link Text](server/index.js)
+`const allowedOrigins = ["https://confession-box.vercel.app/"];` change to http://localhost:5000/
+- [Link Text](src/components/VideoChat.js)
+`socketRef.current = io.connect("https://confession-box.vercel.app/");` hange to http://localhost:5000/
+  
 
-### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+
+If you want to fork the app and deploy your own instsnce, remeber to run the following command before deployment
 
 ### `npm run build`
 
