@@ -29,7 +29,7 @@ const VideoChat = () => {
 
     // Event listener for connection success
     socketRef.current.on("connect", () => {
-      setConnected(true); // Update connection status to true
+      setConnected(true); // Update connection status to true.
     });
 
     // Event listener for disconnection
