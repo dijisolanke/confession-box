@@ -20,7 +20,6 @@ export const Video = styled.video`
   max-width: 400px;
   margin: 0 10px;
   filter: blur(4px);
-
 `;
 
 export const Button = styled.button`
@@ -82,4 +81,9 @@ export const TextChat = styled.div`
     text-align: left;
     color: green;
   }
+`;
+export const StatusMessage = styled.div`
+  margin-bottom: 10px;
+  font-weight: bold;
+  color: ${(props) => (props.connected ? "green" : "red")};
 `;
