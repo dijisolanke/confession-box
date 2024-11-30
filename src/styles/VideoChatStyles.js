@@ -1,24 +1,34 @@
 import styled from "styled-components";
 
+// Container for the entire page
 export const Container = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 20px;
+  height: 100vh;
+  justify-content: center;
 `;
 
+// Container for video viewports
 export const VideoContainer = styled.div`
   display: flex;
   justify-content: center;
   width: 100%;
+  margin-bottom: 20px; // Space between video and chat
 `;
 
+// Styled video element
 export const Video = styled.video`
-  width: 40%;
-  max-width: 400px;
-  margin: 0 10px;
-  filter: blur(4px);
+  width: 400px; // Fixed width of 400px
+  height: 300px; // Set height for consistency
+  margin: 0 20px; // 20px margin between the videos
+  border-radius: 8px; // Rounded corners for a cleaner look
+  object-fit: cover; // Ensures video content doesn't get distorted
+  border: 2px solid #ccc; // Optional border to separate videos visually
 `;
 
+// Styled button for "Next" or "Start Chat"
 export const Button = styled.button`
   margin: 10px;
   padding: 10px 20px;
@@ -29,6 +39,7 @@ export const Button = styled.button`
   cursor: pointer;
 `;
 
+// Chat box area
 export const TextChat = styled.div`
   width: 300px;
   height: 400px;
@@ -36,6 +47,7 @@ export const TextChat = styled.div`
   display: flex;
   flex-direction: column;
   margin-top: 20px;
+  border-radius: 8px;
 
   > div {
     flex: 1;
@@ -50,6 +62,8 @@ export const TextChat = styled.div`
     input {
       flex: 1;
       padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
     }
 
     button {
@@ -58,6 +72,7 @@ export const TextChat = styled.div`
       color: white;
       border: none;
       cursor: pointer;
+      border-radius: 5px;
     }
   }
 
