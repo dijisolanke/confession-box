@@ -22,7 +22,9 @@ const VideoChat = () => {
   const socketRef = useRef();
 
   useEffect(() => {
-    socketRef.current = io.connect("https://confession-box.vercel.app/");
+    socketRef.current = io.connect(
+      "https://confession-box-server.onrender.com" //connect to backend server
+    );
 
     // Listen for connection status updates
     socketRef.current.on("connect", () => {
