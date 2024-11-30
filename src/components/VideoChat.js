@@ -1,179 +1,97 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Container,
-  VideoContainer,
-  Video,
-  Button,
-  TextChat,
-} from "../styles/VideoChatStyles";
-import io from "socket.io-client";
-import Peer from "simple-peer";
+const express = require("express");
+const http = require("http");
+const socketIo = require("socket.io");
+const cors = require("cors");
 
-const VideoChat = () => {
-  const [stream, setStream] = useState();
-  const [chatActive, setChatActive] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState("");
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
 
-  const userVideo = useRef();
-  const partnerVideo = useRef();
-  const connectionRef = useRef();
-  const socketRef = useRef();
+// Allowed origin for CORS (Vercel front-end URL)
+const allowedOrigins = ["https://confession-box.vercel.app/"]; // Replace with your actual frontend URL
 
-  useEffect(() => {
-    // Connect to the server
-    socketRef.current = io.connect(
-      "https://confession-box-server.onrender.com"
-    );
+// Use CORS middleware to handle cross-origin requests
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true, // Allow credentials if needed
+  })
+);
 
-    // Get the user media stream (camera and microphone)
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((currentStream) => {
-        setStream(currentStream);
-        if (userVideo.current) {
-          userVideo.current.srcObject = currentStream;
-        }
-      })
-      .catch((err) => {
-        console.error("Error accessing media devices:", err);
-      });
+const availableUsers = new Set(); // Set to track available users
 
-    // WebSocket events
-    socketRef.current.on("matched", ({ partnerId }) => {
-      setChatActive(true);
-      callUser(partnerId); // Call the matched user
+// When a client connects
+io.on("connection", (socket) => {
+  console.log(`User connected: ${socket.id}`);
+
+  // Add the user to the available pool of users
+  availableUsers.add(socket.id);
+
+  // Attempt to match users for a video chat
+  tryMatch();
+
+  // Handle user disconnection
+  socket.on("disconnect", () => {
+    availableUsers.delete(socket.id);
+    console.log(`User disconnected: ${socket.id}`);
+    tryMatch(); // Re-attempt matching when a user disconnects
+  });
+
+  // Handle the "next" event when a user wants to move to the next chat
+  socket.on("next", () => {
+    endCurrentChat(socket.id); // End the current chat session
+    availableUsers.add(socket.id); // Add the user back to the available pool
+    tryMatch(); // Attempt to match users again
+  });
+
+  // Handle when one user is calling another
+  socket.on("callUser", ({ userToCall, signalData }) => {
+    console.log(`User ${socket.id} is calling ${userToCall}`);
+
+    // Emit the signal data to the user being called
+    io.to(userToCall).emit("callUser", {
+      signal: signalData, // Send the signaling data to the user being called
+      from: socket.id, // Identify the caller
     });
+  });
 
-    socketRef.current.on("callUser", ({ signal }) => {
-      answerCall(signal); // Answer incoming call
-    });
+  // Handle when a user answers a call
+  socket.on("answerCall", (signalData) => {
+    console.log(`User ${socket.id} is answering the call`);
 
-    socketRef.current.on("callAccepted", (signal) => {
-      connectionRef.current.signal(signal); // Accept the call and connect
-    });
+    // Send the signal back to the user who initiated the call
+    io.to(signalData.from).emit("callAccepted", signalData.signal);
+  });
 
-    socketRef.current.on("receiveMessage", (message) => {
-      setMessages((prevMessages) => [...prevMessages, message]);
-    });
+  // Handle sending messages between users
+  socket.on("sendMessage", (message) => {
+    console.log(`User ${socket.id} is sending a message: ${message}`);
+    io.emit("receiveMessage", { text: message, fromSelf: socket.id });
+  });
+});
 
-    return () => {
-      // Clean up when the component unmounts
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
-  }, []);
+// Function to try and match users for a video chat
+function tryMatch() {
+  if (availableUsers.size >= 2) {
+    const [user1, user2] = [...availableUsers].slice(0, 2);
+    availableUsers.delete(user1);
+    availableUsers.delete(user2);
 
-  // Start the call with the matched user
-  const callUser = (partnerId) => {
-    const peer = new Peer({
-      initiator: true,
-      trickle: false,
-      stream: stream,
-    });
+    // Notify both users that they are matched
+    io.to(user1).to(user2).emit("matched", { partnerId: user2 });
+    console.log(`Users matched: ${user1} and ${user2}`);
+  }
+}
 
-    // Send the signal to the server
-    peer.on("signal", (data) => {
-      socketRef.current.emit("callUser", {
-        userToCall: partnerId,
-        signalData: data,
-      });
-    });
+// Function to end the current chat session for a user
+function endCurrentChat(userId) {
+  console.log(`Ending chat for user: ${userId}`);
+  availableUsers.delete(userId); // Remove user from the available pool
+}
 
-    // Receive partner's stream and display it
-    peer.on("stream", (partnerStream) => {
-      partnerVideo.current.srcObject = partnerStream;
-    });
-
-    connectionRef.current = peer;
-  };
-
-  // Answer the incoming call
-  const answerCall = (incomingSignal) => {
-    const peer = new Peer({
-      initiator: false,
-      trickle: false,
-      stream: stream,
-    });
-
-    // Send the signal to the server that the call is accepted
-    peer.on("signal", (data) => {
-      socketRef.current.emit("answerCall", { signal: data });
-    });
-
-    // Receive partner's stream and display it
-    peer.on("stream", (partnerStream) => {
-      partnerVideo.current.srcObject = partnerStream;
-    });
-
-    // Signal the peer with the incoming signal
-    peer.signal(incomingSignal);
-    connectionRef.current = peer;
-  };
-
-  // Switch to next random chat by destroying the current peer connection
-  const nextChat = () => {
-    if (connectionRef.current) {
-      connectionRef.current.destroy(); // Destroy current peer connection
-    }
-    setChatActive(false);
-    setMessages([]);
-    socketRef.current.emit("next"); // Request the next chat
-  };
-
-  // Send a message in the chat
-  const sendMessage = (e) => {
-    e.preventDefault();
-    if (inputMessage) {
-      socketRef.current.emit("sendMessage", inputMessage);
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { text: inputMessage, fromSelf: true },
-      ]);
-      setInputMessage(""); // Clear the input field
-    }
-  };
-
-  return (
-    <Container>
-      <h1>Random Video Chat</h1>
-      <VideoContainer>
-        {stream && <Video playsInline muted ref={userVideo} autoPlay />}
-        {chatActive && <Video playsInline ref={partnerVideo} autoPlay />}
-      </VideoContainer>
-      {chatActive ? (
-        <>
-          <Button onClick={nextChat}>Next</Button>
-          <TextChat>
-            <div>
-              {messages.map((msg, index) => (
-                <div key={index} className={msg.fromSelf ? "self" : "partner"}>
-                  {msg.text}
-                </div>
-              ))}
-            </div>
-            <form onSubmit={sendMessage}>
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Type a message..."
-              />
-              <button type="submit">Send</button>
-            </form>
-          </TextChat>
-        </>
-      ) : (
-        <Button onClick={() => socketRef.current.emit("next")}>
-          Start Chat
-        </Button>
-      )}
-    </Container>
-  );
-};
-
-export default VideoChat;
+// Start the server
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
