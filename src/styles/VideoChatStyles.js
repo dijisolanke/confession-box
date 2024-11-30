@@ -20,12 +20,10 @@ export const VideoContainer = styled.div`
 
 // Styled video element
 export const Video = styled.video`
-  width: 400px; // Fixed width of 400px
-  height: 300px; // Set height for consistency
-  margin: 0 20px; // 20px margin between the videos
-  border-radius: 8px; // Rounded corners for a cleaner look
-  object-fit: cover; // Ensures video content doesn't get distorted
-  border: 2px solid #ccc; // Optional border to separate videos visually
+  width: 40%;
+  max-width: 400px;
+  margin: 0 10px;
+  filter: blur(4px);
 `;
 
 // Styled button for "Next" or "Start Chat"

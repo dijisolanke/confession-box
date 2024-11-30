@@ -14,6 +14,7 @@ const VideoChat = () => {
   const [chatActive, setChatActive] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
+  const [connected, setConnected] = useState(false); // Track connection status
 
   const userVideo = useRef();
   const partnerVideo = useRef();
@@ -21,36 +22,37 @@ const VideoChat = () => {
   const socketRef = useRef();
 
   useEffect(() => {
-    // Connect to the server
-    socketRef.current = io.connect(
-      "https://confession-box-server.onrender.com"
-    );
+    socketRef.current = io.connect("https://confession-box.vercel.app/");
 
-    // Get the user media stream (camera and microphone)
+    // Listen for connection status updates
+    socketRef.current.on("connect", () => {
+      setConnected(true);
+    });
+
+    socketRef.current.on("disconnect", () => {
+      setConnected(false);
+    });
+
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((currentStream) => {
         setStream(currentStream);
         if (userVideo.current) {
-          userVideo.current.srcObject = currentStream;
+          userVideo.current.srcObject = currentStream; // Display user's camera
         }
-      })
-      .catch((err) => {
-        console.error("Error accessing media devices:", err);
       });
 
-    // WebSocket events
     socketRef.current.on("matched", ({ partnerId }) => {
       setChatActive(true);
-      callUser(partnerId); // Call the matched user
+      callUser(partnerId);
     });
 
     socketRef.current.on("callUser", ({ signal }) => {
-      answerCall(signal); // Answer incoming call
+      answerCall(signal);
     });
 
     socketRef.current.on("callAccepted", (signal) => {
-      connectionRef.current.signal(signal); // Accept the call and connect
+      connectionRef.current.signal(signal);
     });
 
     socketRef.current.on("receiveMessage", (message) => {
@@ -58,7 +60,6 @@ const VideoChat = () => {
     });
 
     return () => {
-      // Clean up when the component unmounts
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
@@ -68,7 +69,6 @@ const VideoChat = () => {
     };
   }, []);
 
-  // Start the call with the matched user
   const callUser = (partnerId) => {
     const peer = new Peer({
       initiator: true,
@@ -76,7 +76,6 @@ const VideoChat = () => {
       stream: stream,
     });
 
-    // Send the signal to the server
     peer.on("signal", (data) => {
       socketRef.current.emit("callUser", {
         userToCall: partnerId,
@@ -84,7 +83,6 @@ const VideoChat = () => {
       });
     });
 
-    // Receive partner's stream and display it
     peer.on("stream", (partnerStream) => {
       partnerVideo.current.srcObject = partnerStream;
     });
@@ -92,7 +90,6 @@ const VideoChat = () => {
     connectionRef.current = peer;
   };
 
-  // Answer the incoming call
   const answerCall = (incomingSignal) => {
     const peer = new Peer({
       initiator: false,
@@ -100,32 +97,27 @@ const VideoChat = () => {
       stream: stream,
     });
 
-    // Send the signal to the server that the call is accepted
     peer.on("signal", (data) => {
       socketRef.current.emit("answerCall", { signal: data });
     });
 
-    // Receive partner's stream and display it
     peer.on("stream", (partnerStream) => {
       partnerVideo.current.srcObject = partnerStream;
     });
 
-    // Signal the peer with the incoming signal
     peer.signal(incomingSignal);
     connectionRef.current = peer;
   };
 
-  // Switch to next random chat by destroying the current peer connection
   const nextChat = () => {
     if (connectionRef.current) {
-      connectionRef.current.destroy(); // Destroy current peer connection
+      connectionRef.current.destroy();
     }
     setChatActive(false);
     setMessages([]);
-    socketRef.current.emit("next"); // Request the next chat
+    socketRef.current.emit("next");
   };
 
-  // Send a message in the chat
   const sendMessage = (e) => {
     e.preventDefault();
     if (inputMessage) {
@@ -134,17 +126,31 @@ const VideoChat = () => {
         ...prevMessages,
         { text: inputMessage, fromSelf: true },
       ]);
-      setInputMessage(""); // Clear the input field
+      setInputMessage("");
     }
   };
 
   return (
     <Container>
       <h1>Random Video Chat</h1>
+
+      {/* Display connection status */}
+      <div>
+        {connected ? (
+          <span style={{ color: "green" }}>Connected to server</span>
+        ) : (
+          <span style={{ color: "red" }}>Disconnected from server</span>
+        )}
+      </div>
+
+      {/* User's camera feed */}
       <VideoContainer>
         {stream && <Video playsInline muted ref={userVideo} autoPlay />}
+        {/* Display partner's camera feed when the chat is active */}
         {chatActive && <Video playsInline ref={partnerVideo} autoPlay />}
       </VideoContainer>
+
+      {/* Chat window */}
       {chatActive ? (
         <>
           <Button onClick={nextChat}>Next</Button>
