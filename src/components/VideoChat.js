@@ -5,6 +5,7 @@ import {
   Video,
   Button,
   TextChat,
+  StatusMessage,
 } from "../styles/VideoChatStyles";
 import io from "socket.io-client";
 import Peer from "simple-peer";
@@ -14,8 +15,7 @@ const VideoChat = () => {
   const [chatActive, setChatActive] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
-  const [connected, setConnected] = useState(false); // Track connection status
-
+  const [connected, setConnected] = useState(false);
   const userVideo = useRef();
   const partnerVideo = useRef();
   const connectionRef = useRef();
@@ -23,16 +23,22 @@ const VideoChat = () => {
 
   useEffect(() => {
     socketRef.current = io.connect(
-      "https://confession-box-server.onrender.com" //connect to backend server
+      "https://confession-box-server.onrender.com"
     );
 
-    // Listen for connection status updates
     socketRef.current.on("connect", () => {
       setConnected(true);
+      console.log("Connected to server");
     });
 
     socketRef.current.on("disconnect", () => {
       setConnected(false);
+      console.log("Disconnected from server");
+    });
+
+    socketRef.current.on("reconnect", (attemptNumber) => {
+      console.log(`Reconnected to server after ${attemptNumber} attempts`);
+      setConnected(true);
     });
 
     navigator.mediaDevices
@@ -40,8 +46,12 @@ const VideoChat = () => {
       .then((currentStream) => {
         setStream(currentStream);
         if (userVideo.current) {
-          userVideo.current.srcObject = currentStream; // Display user's camera
+          userVideo.current.srcObject = currentStream;
         }
+      })
+      .catch((error) => {
+        console.error("Error accessing media devices:", error);
+        // Handle the error (e.g., display an error message to the user)
       });
 
     socketRef.current.on("matched", ({ partnerId }) => {
@@ -68,6 +78,9 @@ const VideoChat = () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
+      if (connectionRef.current) {
+        connectionRef.current.destroy();
+      }
     };
   }, []);
 
@@ -76,6 +89,13 @@ const VideoChat = () => {
       initiator: true,
       trickle: false,
       stream: stream,
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          // { urls: "stun:global.stun.twilio.com:3478" },
+          // Add your TURN server configuration here
+        ],
+      },
     });
 
     peer.on("signal", (data) => {
@@ -89,6 +109,16 @@ const VideoChat = () => {
       partnerVideo.current.srcObject = partnerStream;
     });
 
+    peer.on("error", (err) => {
+      console.error("Peer connection error:", err);
+      // Handle the error (e.g., display an error message, try to reconnect)
+    });
+
+    peer.on("close", () => {
+      console.log("Peer connection closed");
+      // Handle the closure (e.g., reset the UI, prepare for a new connection)
+    });
+
     connectionRef.current = peer;
   };
 
@@ -97,6 +127,13 @@ const VideoChat = () => {
       initiator: false,
       trickle: false,
       stream: stream,
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:global.stun.twilio.com:3478" },
+          // Add your TURN server configuration here
+        ],
+      },
     });
 
     peer.on("signal", (data) => {
@@ -105,6 +142,16 @@ const VideoChat = () => {
 
     peer.on("stream", (partnerStream) => {
       partnerVideo.current.srcObject = partnerStream;
+    });
+
+    peer.on("error", (err) => {
+      console.error("Peer connection error:", err);
+      // Handle the error (e.g., display an error message, try to reconnect)
+    });
+
+    peer.on("close", () => {
+      console.log("Peer connection closed");
+      // Handle the closure (e.g., reset the UI, prepare for a new connection)
     });
 
     peer.signal(incomingSignal);
@@ -135,24 +182,13 @@ const VideoChat = () => {
   return (
     <Container>
       <h1>Random Video Chat</h1>
-
-      {/* Display connection status */}
-      <div>
-        {connected ? (
-          <span style={{ color: "green" }}>Connected to server</span>
-        ) : (
-          <span style={{ color: "red" }}>Disconnected from server</span>
-        )}
-      </div>
-
-      {/* User's camera feed */}
+      <StatusMessage connected={connected}>
+        {connected ? "Connected to server" : "Disconnected from server"}
+      </StatusMessage>
       <VideoContainer>
         {stream && <Video playsInline muted ref={userVideo} autoPlay />}
-        {/* Display partner's camera feed when the chat is active */}
         {chatActive && <Video playsInline ref={partnerVideo} autoPlay />}
       </VideoContainer>
-
-      {/* Chat window */}
       {chatActive ? (
         <>
           <Button onClick={nextChat}>Next</Button>
@@ -166,7 +202,6 @@ const VideoChat = () => {
             </div>
             <form onSubmit={sendMessage}>
               <input
-                type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 placeholder="Type a message..."
