@@ -14,6 +14,7 @@ const VideoChat = () => {
   const [chatActive, setChatActive] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
+  const [connected, setConnected] = useState(false); // New state for connection status
 
   const userVideo = useRef();
   const partnerVideo = useRef();
@@ -21,10 +22,20 @@ const VideoChat = () => {
   const socketRef = useRef();
 
   useEffect(() => {
+    // Connect to the WebSocket server
     socketRef.current = io.connect(
       "https://confession-box-server.onrender.com"
     );
-    // socketRef.current = io.connect("http://localhost:6000/");
+
+    // Event listener for connection success
+    socketRef.current.on("connect", () => {
+      setConnected(true); // Update connection status to true.
+    });
+
+    // Event listener for disconnection
+    socketRef.current.on("disconnect", () => {
+      setConnected(false); // Update connection status to false
+    });
 
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -126,10 +137,21 @@ const VideoChat = () => {
   return (
     <Container>
       <h1>Random Video Chat</h1>
+
+      {/* Display connection status */}
+      <div>
+        {connected ? (
+          <span style={{ color: "green" }}>Connected to server</span>
+        ) : (
+          <span style={{ color: "red" }}>Disconnected from server</span>
+        )}
+      </div>
+
       <VideoContainer>
         {stream && <Video playsInline muted ref={userVideo} autoPlay />}
         {chatActive && <Video playsInline ref={partnerVideo} autoPlay />}
       </VideoContainer>
+
       {chatActive ? (
         <>
           <Button onClick={nextChat}>Next</Button>
