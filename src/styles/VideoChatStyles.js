@@ -1,32 +1,28 @@
 import styled from "styled-components";
 
-// Container for the entire page
 export const Container = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  height: 100vh;
-  justify-content: center;
 `;
 
-// Container for video viewports
 export const VideoContainer = styled.div`
   display: flex;
   justify-content: center;
   width: 100%;
-  margin-bottom: 20px; // Space between video and chat
+  max-width: 900px; /* Maximum container width for the video */
+  margin-bottom: 20px; /* Space between video and chat */
 `;
 
-// Styled video element
 export const Video = styled.video`
   width: 40%;
   max-width: 400px;
   margin: 0 10px;
   filter: blur(4px);
+
 `;
 
-// Styled button for "Next" or "Start Chat"
 export const Button = styled.button`
   margin: 10px;
   padding: 10px 20px;
@@ -35,9 +31,13 @@ export const Button = styled.button`
   border: none;
   border-radius: 5px;
   cursor: pointer;
+  font-size: 16px;
+
+  &:hover {
+    background-color: #45a049;
+  }
 `;
 
-// Chat box area
 export const TextChat = styled.div`
   width: 300px;
   height: 400px;
@@ -45,7 +45,6 @@ export const TextChat = styled.div`
   display: flex;
   flex-direction: column;
   margin-top: 20px;
-  border-radius: 8px;
 
   > div {
     flex: 1;
