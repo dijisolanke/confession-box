@@ -13,7 +13,7 @@ const io = socketIo(server, {
 });
 
 const availableUsers = new Set(); // Track users available for matching
-const activePairs = new Map(); // Track active chat pairs
+const activePairs = new Map(); // Track active chat pairs.
 
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
