@@ -16,10 +16,11 @@ export const VideoContainer = styled.div`
 `;
 
 export const Video = styled.video`
-  width: 400px; /* Fixed width for each video */
-  height: auto;
+  width: 40%;
+  max-width: 400px;
   margin: 0 10px;
-  border-radius: 8px; /* Optional: rounded corners for a clean look */
+  filter: blur(4px);
+
 `;
 
 export const Button = styled.button`

@@ -14,6 +14,7 @@ const VideoChat = () => {
   const [chatActive, setChatActive] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
+  const [connected, setConnected] = useState(false); // Track connection status
 
   const userVideo = useRef();
   const partnerVideo = useRef();
@@ -23,12 +24,21 @@ const VideoChat = () => {
   useEffect(() => {
     socketRef.current = io.connect("https://confession-box.vercel.app/");
 
+    // Listen for connection status updates
+    socketRef.current.on("connect", () => {
+      setConnected(true);
+    });
+
+    socketRef.current.on("disconnect", () => {
+      setConnected(false);
+    });
+
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((currentStream) => {
         setStream(currentStream);
         if (userVideo.current) {
-          userVideo.current.srcObject = currentStream;
+          userVideo.current.srcObject = currentStream; // Display user's camera
         }
       });
 
@@ -123,10 +133,24 @@ const VideoChat = () => {
   return (
     <Container>
       <h1>Random Video Chat</h1>
+
+      {/* Display connection status */}
+      <div>
+        {connected ? (
+          <span style={{ color: "green" }}>Connected to server</span>
+        ) : (
+          <span style={{ color: "red" }}>Disconnected from server</span>
+        )}
+      </div>
+
+      {/* User's camera feed */}
       <VideoContainer>
         {stream && <Video playsInline muted ref={userVideo} autoPlay />}
+        {/* Display partner's camera feed when the chat is active */}
         {chatActive && <Video playsInline ref={partnerVideo} autoPlay />}
       </VideoContainer>
+
+      {/* Chat window */}
       {chatActive ? (
         <>
           <Button onClick={nextChat}>Next</Button>
