@@ -90,6 +90,12 @@ const VideoChat = () => {
   }, []);
 
   const callUser = (partnerId) => {
+    if (!stream) {
+      console.error(
+        "Stream is not initialized before creating Peer connection."
+      );
+      return;
+    }
     console.log("Local stream in callUser:", stream);
     const peer = new Peer({
       initiator: true,
@@ -98,8 +104,11 @@ const VideoChat = () => {
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
-          // { urls: "stun:global.stun.twilio.com:3478" },
-          // Add your TURN server configuration here
+          {
+            urls: "turn:global.xirsys.net",
+            username: "djisolanke",
+            credential: "24f35fd8-b121-11ef-8eb2-0242ac150003",
+          },
         ],
       },
     });
@@ -129,10 +138,28 @@ const VideoChat = () => {
       // Handle the closure (e.g., reset the UI, prepare for a new connection)
     });
 
+    peer.on("iceStateChange", (state) => {
+      console.log("ICE connection state:", state);
+    });
+
+    peer.on("iceCandidate", (candidate) => {
+      console.log("New ICE candidate:", candidate);
+    });
+
+    peer.on("connect", () => {
+      console.log("Peer connection established.");
+    });
+
     connectionRef.current = peer;
   };
 
   const answerCall = (incomingSignal) => {
+    if (!stream) {
+      console.error(
+        "Stream is not initialized before creating Peer connection."
+      );
+      return;
+    }
     console.log("Local stream in answerCall:", stream);
     const peer = new Peer({
       initiator: false,
@@ -141,8 +168,11 @@ const VideoChat = () => {
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:global.stun.twilio.com:3478" },
-          // Add your TURN server configuration here
+          {
+            urls: "turn:global.xirsys.net",
+            username: "djisolanke",
+            credential: "24f35fd8-b121-11ef-8eb2-0242ac150003",
+          },
         ],
       },
     });
@@ -167,6 +197,18 @@ const VideoChat = () => {
 
     peer.signal(incomingSignal);
     console.log("Received signal:", incomingSignal);
+
+    peer.on("iceStateChange", (state) => {
+      console.log("ICE connection state:", state);
+    });
+
+    peer.on("iceCandidate", (candidate) => {
+      console.log("New ICE candidate:", candidate);
+    });
+
+    peer.on("connect", () => {
+      console.log("Peer connection established.");
+    });
     connectionRef.current = peer;
   };
 
