@@ -107,10 +107,10 @@ const VideoChat = () => {
   }, [stream]);
 
   const callUser = async (partnerId) => {
-    // Wait for the stream to initialize if it doesn't exist yet
-    const currentStream = stream || (await initializeStream());
-    if (!currentStream) {
-      console.error("Stream is not initialized.");
+    if (!stream) {
+      console.error(
+        "Stream is not initialized before creating Peer connection."
+      );
       return;
     }
 
@@ -151,17 +151,18 @@ const VideoChat = () => {
 
     peer.on("close", () => {
       console.log("Peer connection closed");
+      connectionRef.current = null; // Clear the reference on close
     });
     connectionRef.current = peer;
   };
 
   const answerCall = async (incomingSignal) => {
-    const currentStream = stream || (await initializeStream());
-    if (!currentStream) {
-      console.error("Stream is not initialized.");
+    if (!stream) {
+      console.error(
+        "Stream is not initialized before creating Peer connection."
+      );
       return;
     }
-    console.log("Local stream in answerCall:", stream);
 
     const peer = new Peer({
       initiator: false,
@@ -197,6 +198,7 @@ const VideoChat = () => {
 
     peer.on("close", () => {
       console.log("Peer connection closed");
+      connectionRef.current = null;
     });
 
     peer.signal(incomingSignal);
