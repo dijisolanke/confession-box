@@ -44,9 +44,14 @@ const VideoChat = () => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((currentStream) => {
+        console.log("Media stream:", currentStream);
         setStream(currentStream);
         if (userVideo.current) {
           userVideo.current.srcObject = currentStream;
+          userVideo.current.addEventListener(
+            "error",
+            (e) => console.error("Error with user video element:", e) // Add this line
+          );
         }
       })
       .catch((error) => {
@@ -85,6 +90,7 @@ const VideoChat = () => {
   }, []);
 
   const callUser = (partnerId) => {
+    console.log("Local stream in callUser:", stream);
     const peer = new Peer({
       initiator: true,
       trickle: false,
@@ -99,6 +105,7 @@ const VideoChat = () => {
     });
 
     peer.on("signal", (data) => {
+      console.log("Sending signal:", data);
       socketRef.current.emit("callUser", {
         userToCall: partnerId,
         signalData: data,
@@ -107,6 +114,9 @@ const VideoChat = () => {
 
     peer.on("stream", (partnerStream) => {
       partnerVideo.current.srcObject = partnerStream;
+      partnerVideo.current.addEventListener("error", (e) =>
+        console.error("Error with partner video element:", e)
+      );
     });
 
     peer.on("error", (err) => {
@@ -123,6 +133,7 @@ const VideoChat = () => {
   };
 
   const answerCall = (incomingSignal) => {
+    console.log("Local stream in answerCall:", stream);
     const peer = new Peer({
       initiator: false,
       trickle: false,
@@ -155,6 +166,7 @@ const VideoChat = () => {
     });
 
     peer.signal(incomingSignal);
+    console.log("Received signal:", incomingSignal);
     connectionRef.current = peer;
   };
 
