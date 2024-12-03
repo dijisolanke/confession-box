@@ -106,19 +106,19 @@ const VideoChat = () => {
     };
   }, [stream]);
 
-  const callUser = (partnerId, currentStream) => {
-    if (!currentStream) {
+  const callUser = (partnerId) => {
+    if (!stream) {
       console.error(
         "Stream is not initialized before creating Peer connection."
       );
       return;
     }
-    console.log("Local stream in callUser:", currentStream);
+    console.log("Local stream in callUser:", stream);
 
     const peer = new Peer({
       initiator: true,
       trickle: false,
-      stream: currentStream,
+      stream: stream,
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
@@ -140,7 +140,10 @@ const VideoChat = () => {
     });
 
     peer.on("stream", (partnerStream) => {
-      partnerVideo.current.srcObject = partnerStream;
+      console.log("Received partner stream:", partnerStream);
+      if (partnerVideo.current) {
+        partnerVideo.current.srcObject = partnerStream;
+      }
     });
 
     peer.on("error", (err) => {
@@ -154,19 +157,19 @@ const VideoChat = () => {
     connectionRef.current = peer;
   };
 
-  const answerCall = (incomingSignal, currentStream) => {
-    if (!currentStream) {
+  const answerCall = (incomingSignal) => {
+    if (!stream) {
       console.error(
         "Stream is not initialized before creating Peer connection."
       );
       return;
     }
-    console.log("Local stream in answerCall:", currentStream);
+    console.log("Local stream in answerCall:", stream);
 
     const peer = new Peer({
       initiator: false,
       trickle: false,
-      stream: currentStream,
+      stream: stream,
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
@@ -180,11 +183,15 @@ const VideoChat = () => {
     });
 
     peer.on("signal", (data) => {
+      console.log("Answering call with signal:", data);
       socketRef.current.emit("answerCall", { signal: data });
     });
 
     peer.on("stream", (partnerStream) => {
-      partnerVideo.current.srcObject = partnerStream;
+      console.log("Received partner stream in answerCall:", partnerStream);
+      if (partnerVideo.current) {
+        partnerVideo.current.srcObject = partnerStream;
+      }
     });
 
     peer.on("error", (err) => {
@@ -195,7 +202,12 @@ const VideoChat = () => {
       console.log("Peer connection closed");
     });
 
-    peer.signal(incomingSignal);
+    try {
+      console.log("Signaling incoming signal in answerCall:", incomingSignal);
+      peer.signal(incomingSignal);
+    } catch (error) {
+      console.error("Error signaling in answerCall:", error);
+    }
     connectionRef.current = peer;
   };
 
