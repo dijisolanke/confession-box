@@ -315,7 +315,7 @@ const VideoChat = () => {
               <input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Type a message..."
+                placeholder="Type a message...."
               />
               <button type="submit">Send</button>
             </form>
