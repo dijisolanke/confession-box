@@ -1,5 +1,7 @@
 import React from "react";
 import VideoChat from "./components/VideoChat";
+import process from "process";
+window.process = process;
 
 function App() {
   return (

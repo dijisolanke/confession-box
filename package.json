@@ -6,11 +6,15 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "customize-cra": "^1.0.0",
+    "process": "^0.11.10",
     "react": "^18.3.1",
+    "react-app-rewired": "^2.2.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
     "simple-peer": "^9.11.1",
     "socket.io-client": "^4.8.1",
+    "stream-browserify": "^3.0.0",
     "styled-components": "^6.1.13",
     "web-vitals": "^2.1.4"
   },
@@ -37,5 +41,11 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "browser": {
+    "stream": "stream-browserify"
+  },
+  "devDependencies": {
+    "webpack": "^5.96.1"
   }
 }
