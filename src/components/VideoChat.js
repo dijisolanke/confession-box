@@ -51,10 +51,6 @@ const VideoChat = () => {
       "https://confession-box-server.onrender.com"
     );
 
-    if (!socketRef.current) {
-      console.error("Socket reference is not initialized.");
-      return;
-    }
     socketRef.current.on("connect", () => {
       setConnected(true);
       console.log("Connected to server");
@@ -75,7 +71,10 @@ const VideoChat = () => {
       setChatActive(true);
       const currentStream = await initializeStream();
       if (currentStream) {
-        callUser(partnerId, currentStream);
+        if (connectionRef.current) {
+          connectionRef.current.destroy(); // Cleanup old connection
+        }
+        callUser(partnerId);
       }
     });
 
@@ -83,10 +82,16 @@ const VideoChat = () => {
     socketRef.current.on("callUser", async ({ signal }) => {
       const currentStream = await initializeStream();
       if (currentStream) {
-        answerCall(signal, currentStream);
+        if (connectionRef.current) {
+          connectionRef.current.destroy(); // Cleanup old connection
+        }
+        if (connectionRef.current) {
+          safeSignal(connectionRef.current, signal);
+        } else {
+          answerCall(signal);
+        }
       }
     });
-
     // Listener for call acceptance
     socketRef.current.on("callAccepted", (signal) => {
       connectionRef.current.signal(signal);
