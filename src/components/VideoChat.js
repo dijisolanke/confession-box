@@ -51,6 +51,10 @@ const VideoChat = () => {
       "https://confession-box-server.onrender.com"
     );
 
+    if (!socketRef.current) {
+      console.error("Socket reference is not initialized.");
+      return;
+    }
     socketRef.current.on("connect", () => {
       setConnected(true);
       console.log("Connected to server");
