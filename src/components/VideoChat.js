@@ -106,14 +106,13 @@ const VideoChat = () => {
     };
   }, [stream]);
 
-  const callUser = (partnerId) => {
-    if (!stream) {
-      console.error(
-        "Stream is not initialized before creating Peer connection."
-      );
+  const callUser = async (partnerId) => {
+    // Wait for the stream to initialize if it doesn't exist yet
+    const currentStream = stream || (await initializeStream());
+    if (!currentStream) {
+      console.error("Stream is not initialized.");
       return;
     }
-    console.log("Local stream in callUser:", stream);
 
     const peer = new Peer({
       initiator: true,
@@ -150,26 +149,16 @@ const VideoChat = () => {
       console.error("Peer connection error:", err);
     });
 
-    // Ensure that signaling occurs only if the connection is not stable
-    if (peer._pc.signalingState !== "stable") {
-      console.log("Attempting to signal in callUser.");
-      connectionRef.current = peer;
-    } else {
-      console.log("Peer connection is already stable. Skipping signaling.");
-    }
-
     peer.on("close", () => {
       console.log("Peer connection closed");
     });
-
     connectionRef.current = peer;
   };
 
-  const answerCall = (incomingSignal) => {
-    if (!stream) {
-      console.error(
-        "Stream is not initialized before creating Peer connection."
-      );
+  const answerCall = async (incomingSignal) => {
+    const currentStream = stream || (await initializeStream());
+    if (!currentStream) {
+      console.error("Stream is not initialized.");
       return;
     }
     console.log("Local stream in answerCall:", stream);
@@ -210,17 +199,8 @@ const VideoChat = () => {
       console.log("Peer connection closed");
     });
 
-    try {
-      // Only signal if the peer connection is not already stable
-      if (peer._pc.signalingState !== "stable") {
-        console.log("Signaling incoming signal in answerCall:", incomingSignal);
-        peer.signal(incomingSignal);
-      } else {
-        console.log("Peer connection is already stable. No need to signal.");
-      }
-    } catch (error) {
-      console.error("Error signaling in answerCall:", error);
-    }
+    peer.signal(incomingSignal);
+
     connectionRef.current = peer;
   };
 
