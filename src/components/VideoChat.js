@@ -21,7 +21,32 @@ const VideoChat = () => {
   const connectionRef = useRef();
   const socketRef = useRef();
 
+  // Function to initialize the local media stream
+  const initializeStream = async () => {
+    if (!stream) {
+      try {
+        const currentStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        setStream(currentStream);
+
+        if (userVideo.current) {
+          userVideo.current.srcObject = currentStream;
+        }
+
+        console.log("Local media stream initialized.");
+        return currentStream;
+      } catch (error) {
+        console.error("Error accessing media devices:", error);
+        return null;
+      }
+    }
+    return stream;
+  };
+
   useEffect(() => {
+    // Connect to the server
     socketRef.current = io.connect(
       "https://confession-box-server.onrender.com"
     );
@@ -41,37 +66,29 @@ const VideoChat = () => {
       setConnected(true);
     });
 
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((currentStream) => {
-        console.log("Media stream:", currentStream);
-        setStream(currentStream);
-        if (userVideo.current) {
-          userVideo.current.srcObject = currentStream;
-          userVideo.current.addEventListener(
-            "error",
-            (e) => console.error("Error with user video element:", e) // Add this line
-          );
-        }
-      })
-      .catch((error) => {
-        console.error("Error accessing media devices:", error);
-        // Handle the error (e.g., display an error message to the user)
-      });
-
-    socketRef.current.on("matched", ({ partnerId }) => {
+    // Set up listener for matched event
+    socketRef.current.on("matched", async ({ partnerId }) => {
       setChatActive(true);
-      callUser(partnerId);
+      const currentStream = await initializeStream();
+      if (currentStream) {
+        callUser(partnerId, currentStream);
+      }
     });
 
-    socketRef.current.on("callUser", ({ signal }) => {
-      answerCall(signal);
+    // Set up listener for incoming call
+    socketRef.current.on("callUser", async ({ signal }) => {
+      const currentStream = await initializeStream();
+      if (currentStream) {
+        answerCall(signal, currentStream);
+      }
     });
 
+    // Listener for call acceptance
     socketRef.current.on("callAccepted", (signal) => {
       connectionRef.current.signal(signal);
     });
 
+    // Listener for incoming messages
     socketRef.current.on("receiveMessage", (message) => {
       setMessages((prevMessages) => [...prevMessages, message]);
     });
@@ -87,20 +104,21 @@ const VideoChat = () => {
         connectionRef.current.destroy();
       }
     };
-  }, []);
+  }, [stream]);
 
-  const callUser = (partnerId) => {
-    if (!stream) {
+  const callUser = (partnerId, currentStream) => {
+    if (!currentStream) {
       console.error(
         "Stream is not initialized before creating Peer connection."
       );
       return;
     }
-    console.log("Local stream in callUser:", stream);
+    console.log("Local stream in callUser:", currentStream);
+
     const peer = new Peer({
       initiator: true,
       trickle: false,
-      stream: stream,
+      stream: currentStream,
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
@@ -123,48 +141,32 @@ const VideoChat = () => {
 
     peer.on("stream", (partnerStream) => {
       partnerVideo.current.srcObject = partnerStream;
-      partnerVideo.current.addEventListener("error", (e) =>
-        console.error("Error with partner video element:", e)
-      );
     });
 
     peer.on("error", (err) => {
       console.error("Peer connection error:", err);
-      // Handle the error (e.g., display an error message, try to reconnect)
     });
 
     peer.on("close", () => {
       console.log("Peer connection closed");
-      // Handle the closure (e.g., reset the UI, prepare for a new connection)
-    });
-
-    peer.on("iceStateChange", (state) => {
-      console.log("ICE connection state:", state);
-    });
-
-    peer.on("iceCandidate", (candidate) => {
-      console.log("New ICE candidate:", candidate);
-    });
-
-    peer.on("connect", () => {
-      console.log("Peer connection established.");
     });
 
     connectionRef.current = peer;
   };
 
-  const answerCall = (incomingSignal) => {
-    if (!stream) {
+  const answerCall = (incomingSignal, currentStream) => {
+    if (!currentStream) {
       console.error(
         "Stream is not initialized before creating Peer connection."
       );
       return;
     }
-    console.log("Local stream in answerCall:", stream);
+    console.log("Local stream in answerCall:", currentStream);
+
     const peer = new Peer({
       initiator: false,
       trickle: false,
-      stream: stream,
+      stream: currentStream,
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
@@ -187,37 +189,23 @@ const VideoChat = () => {
 
     peer.on("error", (err) => {
       console.error("Peer connection error:", err);
-      // Handle the error (e.g., display an error message, try to reconnect)
     });
 
     peer.on("close", () => {
       console.log("Peer connection closed");
-      // Handle the closure (e.g., reset the UI, prepare for a new connection)
     });
 
     peer.signal(incomingSignal);
-    console.log("Received signal:", incomingSignal);
-
-    peer.on("iceStateChange", (state) => {
-      console.log("ICE connection state:", state);
-    });
-
-    peer.on("iceCandidate", (candidate) => {
-      console.log("New ICE candidate:", candidate);
-    });
-
-    peer.on("connect", () => {
-      console.log("Peer connection established.");
-    });
     connectionRef.current = peer;
   };
 
-  const nextChat = () => {
+  const nextChat = async () => {
     if (connectionRef.current) {
       connectionRef.current.destroy();
     }
     setChatActive(false);
     setMessages([]);
+    await initializeStream(); // Ensure stream is ready for the next chat
     socketRef.current.emit("next");
   };
 
@@ -265,9 +253,7 @@ const VideoChat = () => {
           </TextChat>
         </>
       ) : (
-        <Button onClick={() => socketRef.current.emit("next")}>
-          Start Chat
-        </Button>
+        <Button onClick={nextChat}>Start Chat</Button>
       )}
     </Container>
   );
