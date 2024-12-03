@@ -150,6 +150,14 @@ const VideoChat = () => {
       console.error("Peer connection error:", err);
     });
 
+    // Ensure that signaling occurs only if the connection is not stable
+    if (peer._pc.signalingState !== "stable") {
+      console.log("Attempting to signal in callUser.");
+      connectionRef.current = peer;
+    } else {
+      console.log("Peer connection is already stable. Skipping signaling.");
+    }
+
     peer.on("close", () => {
       console.log("Peer connection closed");
     });
@@ -203,8 +211,13 @@ const VideoChat = () => {
     });
 
     try {
-      console.log("Signaling incoming signal in answerCall:", incomingSignal);
-      peer.signal(incomingSignal);
+      // Only signal if the peer connection is not already stable
+      if (peer._pc.signalingState !== "stable") {
+        console.log("Signaling incoming signal in answerCall:", incomingSignal);
+        peer.signal(incomingSignal);
+      } else {
+        console.log("Peer connection is already stable. No need to signal.");
+      }
     } catch (error) {
       console.error("Error signaling in answerCall:", error);
     }
