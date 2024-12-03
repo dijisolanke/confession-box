@@ -1,5 +1,3 @@
-//faulty
-
 import React, { useEffect, useRef, useState } from "react";
 import {
   Container,
@@ -73,10 +71,7 @@ const VideoChat = () => {
       setChatActive(true);
       const currentStream = await initializeStream();
       if (currentStream) {
-        if (connectionRef.current) {
-          connectionRef.current.destroy(); // Cleanup old connection
-        }
-        callUser(partnerId);
+        callUser(partnerId, currentStream);
       }
     });
 
@@ -84,16 +79,10 @@ const VideoChat = () => {
     socketRef.current.on("callUser", async ({ signal }) => {
       const currentStream = await initializeStream();
       if (currentStream) {
-        if (connectionRef.current) {
-          connectionRef.current.destroy(); // Cleanup old connection
-        }
-        if (connectionRef.current) {
-          safeSignal(connectionRef.current, signal);
-        } else {
-          answerCall(signal);
-        }
+        answerCall(signal, currentStream);
       }
     });
+
     // Listener for call acceptance
     socketRef.current.on("callAccepted", (signal) => {
       connectionRef.current.signal(signal);
@@ -161,6 +150,14 @@ const VideoChat = () => {
       console.error("Peer connection error:", err);
     });
 
+    // Ensure that signaling occurs only if the connection is not stable
+    if (peer._pc.signalingState !== "stable") {
+      console.log("Attempting to signal in callUser.");
+      connectionRef.current = peer;
+    } else {
+      console.log("Peer connection is already stable. Skipping signaling.");
+    }
+
     peer.on("close", () => {
       console.log("Peer connection closed");
     });
@@ -214,70 +211,18 @@ const VideoChat = () => {
     });
 
     try {
-      console.log("Signaling incoming signal in answerCall:", incomingSignal);
-      peer.signal(incomingSignal);
+      // Only signal if the peer connection is not already stable
+      if (peer._pc.signalingState !== "stable") {
+        console.log("Signaling incoming signal in answerCall:", incomingSignal);
+        peer.signal(incomingSignal);
+      } else {
+        console.log("Peer connection is already stable. No need to signal.");
+      }
     } catch (error) {
       console.error("Error signaling in answerCall:", error);
     }
     connectionRef.current = peer;
   };
-
-  // Fix to prevent signalingState-related errors
-  const safeSignal = (peer, signalData) => {
-    if (
-      !peer._pc ||
-      (peer._pc.signalingState === "stable" && signalData.type === "offer")
-    ) {
-      console.warn(
-        "Skipping offer signaling as peer is already stable or peer connection is unavailable."
-      );
-      return;
-    }
-
-    try {
-      peer.signal(signalData);
-    } catch (error) {
-      console.error("Error during signaling:", error);
-    }
-  };
-
-  // Updated callUser event listener
-  socketRef.current.on("callUser", async ({ signal }) => {
-    const currentStream = await initializeStream();
-    if (currentStream) {
-      if (connectionRef.current) {
-        connectionRef.current.destroy(); // Cleanup old connection
-      }
-      if (connectionRef.current) {
-        safeSignal(connectionRef.current, signal);
-      } else {
-        answerCall(signal);
-      }
-    }
-  });
-
-  // Listener for call acceptance
-  socketRef.current.on("callAccepted", (signal) => {
-    if (connectionRef.current) {
-      console.log("Signaling accepted signal.");
-      safeSignal(connectionRef.current, signal); // Uses safeSignal here
-    } else {
-      console.error("No active peer connection to signal to.");
-    }
-  });
-
-  // Updated matched event listener
-  socketRef.current.on("matched", async ({ partnerId }) => {
-    setChatActive(true);
-
-    const currentStream = await initializeStream();
-    if (currentStream) {
-      if (connectionRef.current) {
-        connectionRef.current.destroy(); // Cleanup old connection
-      }
-      callUser(partnerId);
-    }
-  });
 
   const nextChat = async () => {
     if (connectionRef.current) {
@@ -326,7 +271,7 @@ const VideoChat = () => {
               <input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Type a message...."
+                placeholder="Type a message..."
               />
               <button type="submit">Send</button>
             </form>
