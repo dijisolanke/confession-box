@@ -46,7 +46,7 @@ const VideoChat = () => {
   };
 
   useEffect(() => {
-    // Connect to the server
+    // Connect to the server.
     socketRef.current = io.connect(
       "https://confession-box-server.onrender.com"
     );
