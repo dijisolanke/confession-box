@@ -151,11 +151,19 @@ const VideoChat = () => {
 
     peer.on("close", () => {
       console.log("Peer connection closed");
+      connectionRef.current = null;
     });
+
     connectionRef.current = peer;
   };
 
   const answerCall = async (incomingSignal) => {
+    // Destroy existing peer connection if it exists
+    if (connectionRef.current) {
+      connectionRef.current.destroy();
+      connectionRef.current = null;
+    }
+
     const currentStream = stream || (await initializeStream());
     if (!currentStream) {
       console.error("Stream is not initialized.");
@@ -166,7 +174,7 @@ const VideoChat = () => {
     const peer = new Peer({
       initiator: false,
       trickle: false,
-      stream: stream,
+      stream: currentStream,
       config: {
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
@@ -197,6 +205,7 @@ const VideoChat = () => {
 
     peer.on("close", () => {
       console.log("Peer connection closed");
+      connectionRef.current = null;
     });
 
     peer.signal(incomingSignal);
