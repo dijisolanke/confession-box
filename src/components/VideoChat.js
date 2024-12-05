@@ -11,220 +11,169 @@ import io from "socket.io-client";
 import Peer from "simple-peer";
 
 const VideoChat = () => {
-  const [stream, setStream] = useState();
+  const [stream, setStream] = useState(null);
   const [chatActive, setChatActive] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [connected, setConnected] = useState(false);
-  const userVideo = useRef();
-  const partnerVideo = useRef();
-  const connectionRef = useRef();
-  const socketRef = useRef();
 
-  // Function to initialize the local media stream
+  const userVideo = useRef(null);
+  const partnerVideo = useRef(null);
+  const connectionRef = useRef(null);
+  const socketRef = useRef(null);
+
+  // Initialize the user's local video/audio stream
   const initializeStream = async () => {
-    if (!stream) {
-      try {
-        const currentStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        setStream(currentStream);
-
-        if (userVideo.current) {
-          userVideo.current.srcObject = currentStream;
-        }
-
-        console.log("Local media stream initialized.");
-        return currentStream;
-      } catch (error) {
-        console.error("Error accessing media devices:", error);
-        return null;
-      }
+    if (stream) return stream;
+    try {
+      const currentStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      setStream(currentStream);
+      if (userVideo.current) userVideo.current.srcObject = currentStream;
+      return currentStream;
+    } catch (error) {
+      console.error("Error accessing media devices:", error);
+      return null;
     }
-    return stream;
+  };
+
+  // Handle peer connection
+  const createPeer = (initiator, currentStream, partnerSignal) => {
+    const peer = new Peer({
+      initiator,
+      trickle: false,
+      stream: currentStream,
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          {
+            urls: "turn:global.xirsys.net",
+            username: "djisolanke",
+            credential: "24f35fd8-b121-11ef-8eb2-0242ac150003",
+          },
+        ],
+      },
+    });
+
+    peer.on("signal", (data) => {
+      if (initiator) {
+        console.log("Sending signal to partner:", data);
+        socketRef.current.emit("callUser", {
+          userToCall: socketRef.current.id,
+          signalData: data,
+        });
+      } else {
+        console.log("Answering call with signal:", data);
+        socketRef.current.emit("answerCall", { signal: data });
+      }
+    });
+
+    peer.on("stream", (partnerStream) => {
+      console.log("Received partner's stream.");
+      if (partnerVideo.current) partnerVideo.current.srcObject = partnerStream;
+    });
+
+    peer.on("error", (err) => console.error("Peer connection error:", err));
+    peer.on("close", () => {
+      console.log("Peer connection closed.");
+      connectionRef.current = null;
+      setChatActive(false);
+    });
+
+    if (partnerSignal) peer.signal(partnerSignal);
+    return peer;
+  };
+
+  const startCall = async (partnerId) => {
+    const currentStream = await initializeStream();
+    if (!currentStream) return;
+
+    connectionRef.current = createPeer(true, currentStream);
+  };
+
+  const answerCall = async (signal) => {
+    const currentStream = await initializeStream();
+    if (!currentStream) return;
+
+    connectionRef.current = createPeer(false, currentStream, signal);
+  };
+
+  const endCall = () => {
+    if (connectionRef.current) {
+      connectionRef.current.destroy();
+      connectionRef.current = null;
+    }
+    setChatActive(false);
+    setMessages([]);
+  };
+
+  const handleNextChat = () => {
+    endCall();
+    socketRef.current.emit("next");
+  };
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!inputMessage.trim()) return;
+
+    const message = { text: inputMessage, fromSelf: true };
+    setMessages((prevMessages) => [...prevMessages, message]);
+    socketRef.current.emit("sendMessage", inputMessage);
+    setInputMessage("");
   };
 
   useEffect(() => {
-    // Connect to the server.
-    socketRef.current = io.connect(
-      "https://confession-box-server.onrender.com"
-    );
+    socketRef.current = io("https://confession-box-server.onrender.com");
 
     socketRef.current.on("connect", () => {
       setConnected(true);
-      console.log("Connected to server");
+      console.log("Connected to server.");
     });
 
     socketRef.current.on("disconnect", () => {
       setConnected(false);
-      console.log("Disconnected from server");
+      console.log("Disconnected from server.");
     });
 
-    socketRef.current.on("reconnect", (attemptNumber) => {
-      console.log(`Reconnected to server after ${attemptNumber} attempts`);
-      setConnected(true);
-    });
-
-    // Set up listener for matched event
     socketRef.current.on("matched", async ({ partnerId }) => {
+      console.log("Matched with partner:", partnerId);
       setChatActive(true);
-      const currentStream = await initializeStream();
-      if (currentStream) {
-        callUser(partnerId, currentStream);
-      }
+      await initializeStream();
+      startCall(partnerId);
     });
 
-    // Set up listener for incoming call
     socketRef.current.on("callUser", async ({ signal }) => {
-      const currentStream = await initializeStream();
-      if (currentStream) {
-        answerCall(signal, currentStream);
-      }
+      console.log("Incoming call signal received.");
+      await initializeStream();
+      answerCall(signal);
     });
 
-    // Listener for call acceptance
     socketRef.current.on("callAccepted", (signal) => {
-      connectionRef.current.signal(signal);
+      console.log("Call accepted by partner.");
+      if (connectionRef.current) connectionRef.current.signal(signal);
     });
 
-    // Listener for incoming messages
     socketRef.current.on("receiveMessage", (message) => {
-      setMessages((prevMessages) => [...prevMessages, message]);
+      console.log("Message received:", message);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { text: message, fromSelf: false },
+      ]);
+    });
+
+    socketRef.current.on("chatEnded", ({ message }) => {
+      console.log(message);
+      endCall();
     });
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-      if (connectionRef.current) {
-        connectionRef.current.destroy();
-      }
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+      if (socketRef.current) socketRef.current.disconnect();
+      if (connectionRef.current) connectionRef.current.destroy();
     };
   }, [stream]);
-
-  const callUser = async (partnerId) => {
-    // Wait for the stream to initialize if it doesn't exist yet
-    const currentStream = stream || (await initializeStream());
-    if (!currentStream) {
-      console.error("Stream is not initialized.");
-      return;
-    }
-
-    const peer = new Peer({
-      initiator: true,
-      trickle: false,
-      stream: stream,
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          {
-            urls: "turn:global.xirsys.net",
-            username: "djisolanke",
-            credential: "24f35fd8-b121-11ef-8eb2-0242ac150003",
-          },
-        ],
-      },
-    });
-
-    peer.on("signal", (data) => {
-      console.log("Sending signal:", data);
-      socketRef.current.emit("callUser", {
-        userToCall: partnerId,
-        signalData: data,
-      });
-    });
-
-    peer.on("stream", (partnerStream) => {
-      console.log("Received partner stream:", partnerStream);
-      if (partnerVideo.current) {
-        partnerVideo.current.srcObject = partnerStream;
-      }
-    });
-
-    peer.on("error", (err) => {
-      console.error("Peer connection error:", err);
-    });
-
-    peer.on("close", () => {
-      console.log("Peer connection closed");
-    });
-    connectionRef.current = peer;
-  };
-
-  const answerCall = async (incomingSignal) => {
-    const currentStream = stream || (await initializeStream());
-    if (!currentStream) {
-      console.error("Stream is not initialized.");
-      return;
-    }
-    console.log("Local stream in answerCall:", stream);
-
-    const peer = new Peer({
-      initiator: false,
-      trickle: false,
-      stream: stream,
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          {
-            urls: "turn:global.xirsys.net",
-            username: "djisolanke",
-            credential: "24f35fd8-b121-11ef-8eb2-0242ac150003",
-          },
-        ],
-      },
-    });
-
-    peer.on("signal", (data) => {
-      console.log("Answering call with signal:", data);
-      socketRef.current.emit("answerCall", { signal: data });
-    });
-
-    peer.on("stream", (partnerStream) => {
-      console.log("Received partner stream in answerCall:", partnerStream);
-      if (partnerVideo.current) {
-        partnerVideo.current.srcObject = partnerStream;
-      }
-    });
-
-    peer.on("error", (err) => {
-      console.error("Peer connection error:", err);
-    });
-
-    peer.on("close", () => {
-      console.log("Peer connection closed");
-    });
-
-    peer.signal(incomingSignal);
-
-    connectionRef.current = peer;
-  };
-
-  const nextChat = async () => {
-    if (connectionRef.current) {
-      connectionRef.current.destroy();
-    }
-    setChatActive(false);
-    setMessages([]);
-    await initializeStream(); // Ensure stream is ready for the next chat
-    socketRef.current.emit("next");
-  };
-
-  const sendMessage = (e) => {
-    e.preventDefault();
-    if (inputMessage) {
-      socketRef.current.emit("sendMessage", inputMessage);
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { text: inputMessage, fromSelf: true },
-      ]);
-      setInputMessage("");
-    }
-  };
 
   return (
     <Container>
@@ -238,7 +187,7 @@ const VideoChat = () => {
       </VideoContainer>
       {chatActive ? (
         <>
-          <Button onClick={nextChat}>Next</Button>
+          <Button onClick={handleNextChat}>Next</Button>
           <TextChat>
             <div>
               {messages.map((msg, index) => (
@@ -247,7 +196,7 @@ const VideoChat = () => {
                 </div>
               ))}
             </div>
-            <form onSubmit={sendMessage}>
+            <form onSubmit={handleSendMessage}>
               <input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
@@ -258,7 +207,7 @@ const VideoChat = () => {
           </TextChat>
         </>
       ) : (
-        <Button onClick={nextChat}>Start Chat</Button>
+        <Button onClick={handleNextChat}>Start Chat</Button>
       )}
     </Container>
   );
