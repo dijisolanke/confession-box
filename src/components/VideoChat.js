@@ -16,6 +16,7 @@ const VideoChat = () => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [connected, setConnected] = useState(false);
+  const [signalHandled, setSignalHandled] = useState(false);
 
   const userVideo = useRef(null);
   const partnerVideo = useRef(null);
@@ -82,11 +83,23 @@ const VideoChat = () => {
       setChatActive(false);
     });
 
-    if (partnerSignal) peer.signal(partnerSignal);
+    if (partnerSignal) {
+      try {
+        console.log("Setting remote signal...");
+        peer.signal(partnerSignal);
+      } catch (err) {
+        console.error("Error setting remote signal:", err);
+      }
+    }
     return peer;
   };
 
   const startCall = async (partnerId) => {
+    if (connectionRef.current) {
+      connectionRef.current.destroy();
+      connectionRef.current = null;
+    }
+
     const currentStream = await initializeStream();
     if (!currentStream) return;
 
@@ -94,6 +107,11 @@ const VideoChat = () => {
   };
 
   const answerCall = async (signal) => {
+    if (connectionRef.current) {
+      connectionRef.current.destroy();
+      connectionRef.current = null;
+    }
+
     const currentStream = await initializeStream();
     if (!currentStream) return;
 
@@ -111,6 +129,7 @@ const VideoChat = () => {
 
   const handleNextChat = () => {
     endCall();
+    setSignalHandled(false);
     socketRef.current.emit("next");
   };
 
@@ -145,14 +164,20 @@ const VideoChat = () => {
     });
 
     socketRef.current.on("callUser", async ({ signal }) => {
-      console.log("Incoming call signal received.");
-      await initializeStream();
-      answerCall(signal);
+      if (!signalHandled) {
+        setSignalHandled(true); // Prevent multiple calls
+        console.log("Incoming call signal received.");
+        await initializeStream();
+        answerCall(signal);
+      }
     });
 
     socketRef.current.on("callAccepted", (signal) => {
-      console.log("Call accepted by partner.");
-      if (connectionRef.current) connectionRef.current.signal(signal);
+      if (!signalHandled) {
+        setSignalHandled(true); // Prevent multiple calls
+        console.log("Call accepted by partner.");
+        if (connectionRef.current) connectionRef.current.signal(signal);
+      }
     });
 
     socketRef.current.on("receiveMessage", (message) => {
