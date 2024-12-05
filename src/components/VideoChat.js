@@ -5,6 +5,7 @@ import Peer from "simple-peer";
 const VideoChat = () => {
   const [stream, setStream] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [availablePartners, setAvailablePartners] = useState([]); // New state to store partner IDs
 
   const userVideo = useRef();
   const partnerVideo = useRef();
@@ -176,6 +177,12 @@ const VideoChat = () => {
       }
     });
 
+    // Listen for available partners from the server
+    socketRef.current.on("updatePartners", (partners) => {
+      console.log("Available partners updated:", partners);
+      setAvailablePartners(partners); // Update the available partners
+    });
+
     return () => {
       // Cleanup on component unmount
       if (socketRef.current) {
@@ -215,6 +222,17 @@ const VideoChat = () => {
       >
         Call Partner
       </button>
+      <div>
+        <h3>Available Partners:</h3>
+        <ul>
+          {availablePartners.map((partnerId) => (
+            <li key={partnerId}>
+              {partnerId}{" "}
+              <button onClick={() => callUser(partnerId)}>Call</button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 };
